@@ -2,31 +2,37 @@ import os
 from dotenv import load_dotenv
 from supabase import create_client, Client
 
-# 1. Look right next door for the hidden .env file and read it
 load_dotenv()
 
-# 2. Grab the keys dynamically using os.getenv
 URL = os.getenv("SUPABASE_URL")
 KEY = os.getenv("SUPABASE_KEY")
-
-# 3. Create the secure client connection
 supabase: Client = create_client(URL, KEY)
 
-# 4. Fetch only the rows where category is 'Pending'
+# 1. Fetch only the rows where category is 'Pending'
 response = supabase.table("expenses").select("*").eq("category", "Pending").execute()
 pending_expenses = response.data
 
-# 5. Simple list of keywords to identify food items
-food_keywords = ["jamun", "papdi", "toffee", "sweet", "dinner", "burger", "roll", "cafe"]
+# 2. Define specialized keyword lists for different areas of life
+food_keywords = ["jamun", "papdi", "toffee", "sweet", "dinner", "burger", "roll", "cafe", "food"]
+travel_keywords = ["auto", "uber", "ola", "train", "bus", "metro", "petrol", "cab"]
+bill_keywords = ["recharge", "wifi", "broadband", "electricity", "bill", "rent", "mobile"]
 
-# 6. Loop through each pending item and update it in the cloud!
+# 3. Loop through each pending item and route it correctly
 for expense in pending_expenses:
     description_text = expense["description"].lower()
     expense_id = expense["id"]
     
-    is_food = any(keyword in description_text for keyword in food_keywords)
+    # Initialize the target category
+    final_category = "Other"
     
-    if is_food:
-        new_category = "Food"
-        supabase.table("expenses").update({"category": new_category}).eq("id", expense_id).execute()
-        print(f"Updated: '{expense['description']}' is now categorized as {new_category}!")
+    # Check for matches across our lists
+    if any(keyword in description_text for keyword in food_keywords):
+        final_category = "Food"
+    elif any(keyword in description_text for keyword in travel_keywords):
+        final_category = "Travel"
+    elif any(keyword in description_text for keyword in bill_keywords):
+        final_category = "Bills & Utilities"
+
+    # 4. Tell Supabase to update this specific row with its real category
+    supabase.table("expenses").update({"category": final_category}).eq("id", expense_id).execute()
+    print(f"Successfully processed: '{expense['description']}' -> Categorized as '{final_category}'")
