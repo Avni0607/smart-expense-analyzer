@@ -13,13 +13,13 @@ supabase: Client = create_client(URL, KEY)
 
 # 1. Training Data: Examples to teach our AI model patterns
 training_descriptions = [
-    "gulab jamun", "soan papdi", "pasta for dinner", "chicken roll", "coffee at cafe", "lunch", "pizza",
-    "auto to college", "metro ticket", "uber cab ride", "bus pass", "petrol refill", "train ticket",
+    "gulab jamun","chicken roll", "coffee at cafe", "lunch", "pizza",
+    "auto to college", "metro ticket", "uber cab ride", "bus pass", "petrol refill",
     "mobile recharge", "wifi broadband bill", "electricity bill", "house rent", "water bill"
 ]
 training_labels = [
-    "Food", "Food", "Food", "Food", "Food", "Food", "Food",
-    "Travel", "Travel", "Travel", "Travel", "Travel", "Travel",
+    "Food", "Food", "Food", "Food", "Food",
+    "Travel", "Travel", "Travel", "Travel", "Travel",
     "Bills & Utilities", "Bills & Utilities", "Bills & Utilities", "Bills & Utilities", "Bills & Utilities"
 ]
 
@@ -36,11 +36,19 @@ for expense in pending_expenses:
     description_text = expense["description"]
     expense_id = expense["id"]
     
-    # Ask the ML model to predict the category (returns a list, so we grab)
-    predicted_category = model.predict([description_text])[0]
+    # Ask the AI for its confidence score (between 0 and 1)
+    probabilities = model.predict_proba([description_text])[0]
+    highest_confidence = max(probabilities)
     
+    # Only trust the AI if it is at least 45% confident; otherwise use "Other"
+    if highest_confidence >= 0.45:
+        predicted_category = model.predict([description_text])[0]
+    else:
+        predicted_category = "Other"
+        
     supabase.table("expenses").update({"category": predicted_category}).eq("id", expense_id).execute()
-    print(f"🤖 AI Predicted: '{description_text}' -> Categorized as '{predicted_category}'")
+    print(f"🤖 AI Predicted: '{description_text}' -> '{predicted_category}' (Confidence: {highest_confidence:.0%})")
+
 
 # --- Terminal Spending Summary ---
 print("\n--- 📊 EXPENSE SUMMARY BY CATEGORY ---")
