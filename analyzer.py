@@ -1,5 +1,6 @@
 import os
 import time
+import pandas as pd
 from dotenv import load_dotenv
 from supabase import create_client, Client
 from sklearn.feature_extraction.text import TfidfVectorizer
@@ -12,23 +13,17 @@ URL = os.getenv("SUPABASE_URL")
 KEY = os.getenv("SUPABASE_KEY")
 supabase: Client = create_client(URL, KEY)
 
-# 1. Balanced Training Dataset (5 per category)
-training_descriptions = [
-    "gulab jamun", "pasta for dinner", "chicken roll", "coffee at cafe", "pizza",
-    "auto to college", "metro ticket", "uber cab ride", "bus pass", "train ticket",
-    "mobile recharge", "wifi broadband bill", "electricity bill", "house rent", "water bill"
-]
-training_labels = [
-    "Food", "Food", "Food", "Food", "Food",
-    "Travel", "Travel", "Travel", "Travel", "Travel",
-    "Bills & Utilities", "Bills & Utilities", "Bills & Utilities", "Bills & Utilities", "Bills & Utilities"
-]
+# 1. Load external CSV dataset using Pandas
+df = pd.read_csv("expenses_dataset.csv")
+training_descriptions = df["description"]
+training_labels = df["category"]
 
 # 2. Train the NLP Model once at startup
 model = make_pipeline(TfidfVectorizer(), MultinomialNB())
 model.fit(training_descriptions, training_labels)
 
-print("🚀 AI Expense Watcher is LIVE! Listening for new expenses... (Press Ctrl+C in terminal to stop)\n")
+print(f"🚀 AI Expense Watcher is LIVE! Trained on {len(df)} examples across {df['category'].nunique()} categories.\n")
+
 
 # 3. Continuous Background Loop
 while True:
@@ -46,7 +41,7 @@ while True:
                 probabilities = model.predict_proba([description_text])[0]
                 highest_confidence = max(probabilities)
 
-                if highest_confidence >= 0.45:
+                if highest_confidence >= 0.30:
                     predicted_category = model.predict([description_text])[0]
                 else:
                     predicted_category = "Other"
