@@ -13,16 +13,25 @@ URL = os.getenv("SUPABASE_URL")
 KEY = os.getenv("SUPABASE_KEY")
 supabase: Client = create_client(URL, KEY)
 
-# 1. Load external CSV dataset using Pandas
-df = pd.read_csv("expenses_dataset.csv")
-training_descriptions = df["description"]
-training_labels = df["category"]
+# 1. Load base CSV dataset using Pandas
+base_df = pd.read_csv("expenses_dataset.csv")
 
-# 2. Train the NLP Model once at startup
+# 2. Fetch already-categorized expenses from live Supabase history
+live_response = supabase.table("expenses").select("description, category").neq("category", "Pending").neq("category", "Other").execute()
+live_df = pd.DataFrame(live_response.data)
+
+# 3. Combine CSV + Live History so the AI learns from your real usage
+if not live_df.empty:
+    full_df = pd.concat([base_df, live_df], ignore_index=True)
+else:
+    full_df = base_df
+
+# 4. Train the NLP Model on the combined dataset
 model = make_pipeline(TfidfVectorizer(), MultinomialNB())
-model.fit(training_descriptions, training_labels)
+model.fit(full_df["description"], full_df["category"])
 
-print(f"🚀 AI Expense Watcher is LIVE! Trained on {len(df)} examples across {df['category'].nunique()} categories.\n")
+print(f"🚀 AI Watcher LIVE! Trained on {len(full_df)} total examples ({len(live_df)} learned from your live history).\n")
+
 
 
 # 3. Continuous Background Loop
